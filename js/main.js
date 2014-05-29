@@ -395,7 +395,6 @@ function Player(){
 	this.xOffset = Math.floor(this.width/2);
 	this.yOffset = this.height;
 	this.animSpeed = 0.15;
-	this.animStatus = "idle";
 	this.maxSpeed = 5;
 	this.hSpeed = 0;
 	this.vSpeed = 0;
@@ -610,32 +609,6 @@ function Player(){
 	}
 }
 
-function GameOver(){
-
-	this.Draw = function(){		
-			
-		game.ctx.shadowColor = "#000";
-		game.ctx.shadowOffsetX = 1; 
-		game.ctx.font = "30pt 'PixelFont'"  
-		game.ctx.textAlign="center";
-		game.ctx.shadowBlur = 3;
-		game.ctx.fillStyle = "#eee";
-		game.ctx.fillText("Hai fatto "+game.score+ " punti!",game.canvas.width/2, game.canvas.height/2-30);
-		
-		if(Inputs.MouseInsideText("Menu Principale",game.canvas.width/2, game.canvas.height/2+190,"#eee", "#ea4") && Inputs.GetMousePress(MOUSE_LEFT)){
-			game.lives = 5;
-			game.score = 0;
-			game.fadeout = new FadeOut(60, function() {game.LoadLevel(0);});
-			
-		}
-	
-		game.ctx.shadowOffsetX = 0; 
-		game.ctx.shadowBlur = 0;
-		game.ctx.textAlign="start";
-		
-	}
-}
-
 function StartGame(){
 	game = new Game();
 }
@@ -809,8 +782,11 @@ function Game(){
 	this.DrawAll = function(){
 		// pulisci la schermata del canvas dal precedente draw
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-		if(this.level > 0)
-		{  
+		
+		if(this.level == 0){
+			this.mainMenu.Draw();
+		}
+		else{  
 			//disegna lo sfondo ripetuto 
 			//this.ctx.fillStyle = this.backgroundPattern1;
 			//this.ctx.fillRect(0,0,this.canvas.width, this.canvas.height);
@@ -868,16 +844,6 @@ function Game(){
 			
 			this.hud.Draw();
 			
-		}
-		else{
-			//disegna lo sfondo ripetuto 
-			
-			if(this.level == 0){
-				this.mainMenu.Draw();
-			}
-			else if(this.level == -1){
-				this.gameOver.Draw();
-			}
 		}
 		
 	}
