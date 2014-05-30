@@ -1,7 +1,7 @@
 // gestione delle collisioni tramite bounding box
-BoundingBox = function(_x,_y,w,h){
-	this.x = _x;
-	this.y = _y;
+BoundingBox = function(x,y,w,h){
+	this.x = x;
+	this.y = y;
 	this.width = w;
 	this.height = h;
 	
@@ -11,14 +11,17 @@ BoundingBox = function(_x,_y,w,h){
 		return !(this.x + this.width < b.x || b.x + b.width < this.x || this.y + this.height < b.y || b.y + b.height < this.y);
 	}
 	
-	
-	this.CollidesAt = function(b,x,y){
+	this.CollidesMove = function(b, x, y){
 		return !(x + this.width < b.x || b.x + b.width < x || y + this.height < b.y || b.y + b.height < y);
 	}
 
-	this.Move = function(_x,_y){
-		this.x = _x;
-		this.y = _y;
+	this.CollidesAt = function(b, dx, dy){
+		return !(this.x + dx + this.width < b.x || b.x + b.width < this.x + dx || this.y + this.height + dy < b.y || b.y + b.height < this.y + dy);
+	}
+
+	this.Move = function(x,y){
+		this.x = x;
+		this.y = y;
 	}
 }
  

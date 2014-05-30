@@ -8,7 +8,102 @@
 
 var game = null;
 
- 
+function GameObj(x, y){ 
+	this.x = x;
+	this.y = y;
+	this.animSpeed = 1;
+	this.curFrame = 0;
+	this.xOffset = 0;
+	this.yOffset = 0;
+	
+	this.OffsetCenter = function(){
+		this.xOffset = this.sprite.w/2;
+		this.yOffset = this.sprite.height/2;
+	}
+	
+	this.__DrawSimple = function(){
+		game.ctx.drawImage(this.sprite, this.x - game.viewX - this.xOffset, this.y - game.viewY - this.yOffset); 
+	}
+	
+	this.__DrawAnimated = function(){
+		var ox = Math.floor(this.curFrame) * this.sprite.w;
+		game.ctx.drawImage(this.sprite, ox, 0, this.sprite.w,this.sprite.height,this.x - game.viewX - this.xOffset, this.y - game.viewY - this.yOffset, this.sprite.w, this.sprite.height); 
+	}
+	
+	this.__DrawAnimatedMirror = function(){
+		var ox = Math.floor(this.curFrame) * this.sprite.w;
+		game.ctx.drawImage(this.sprite, ox, 0, this.sprite.w,this.sprite.height,this.x - game.viewX - this.xOffset, this.y - game.viewY - this.yOffset, this.sprite.w, this.sprite.height); 
+	}
+	
+	this.__DrawAnimatedMirror = function(){
+		game.ctx.save();
+		game.ctx.translate(this.x-game.viewX,this.y-game.viewY);
+		game.ctx.scale(this.scaling, 1);
+		var ox = Math.floor(this.curFrame) * this.sprite.w;
+		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,-this.sprite.w/2,0, this.sprite.w, this.sprite.height); 
+		game.ctx.restore();
+	}
+	
+	
+	this.SetSprite = function(sprite, mirror){
+		if(sprite == null || sprite == undefined){
+			this.Draw = function(){};
+			return;
+		}
+		
+		this.sprite = sprite;
+		
+		if(mirror != undefined){
+			this.scaling = 1;
+			this.Draw = this.__DrawAnimatedMirror;
+		}
+		else{
+			if(sprite.frames > 0){
+				this.Draw = this.__DrawAnimated;
+			}else{
+				this.Draw = this.__DrawSimple;
+				this.UpdateAnimation  = function(){};
+			}
+		}
+	}
+	
+	this.UpdateAnimation = function(){
+		this.curFrame += this.animSpeed;
+		if(this.animSpeed > 0){
+			var diff = this.curFrame - this.sprite.frames;
+			if(diff >= 0){
+				this.curFrame = diff;
+				this.OnAnimationEnd();
+			}
+		}
+		else if(this.curFrame < 0){
+			this.curFrame = (this.sprite.frames + this.curFrame) - 0.0000001;
+				this.OnAnimationEnd();
+		}
+	}
+	
+	this.Destroy = function(){
+		this.OnDestroy();
+		game.entities.splice(game.entities.indexOf(this), 1);
+	}
+	
+	//empty functions
+	this.Draw = function(){}
+	this.Update = function(){}
+	this.OnAnimationEnd = function(){}
+	this.OnDestroy = function(){}
+	
+	game.entities.push(this); 
+	
+}
+
+function Inherit(obj, parent){
+	if(parent == undefined)
+		parent = GameObj;
+	obj.prototype = Object.create(parent.prototype);
+	obj.prototype.constructor = obj;
+}
+
 function Block(x, y){ 
 	this.x = x;
 	this.y = y;
@@ -18,23 +113,21 @@ function Block(x, y){
 }
 
 function Bullet(x,y,hspeed){
-	this.x = x;
-	this.y = y;
+	GameObj.call(this, x, y);
+	this.SetSprite(game.sprBullet);
 	this.hSpeed = hspeed;
-	this.bbox = new BoundingBox(x, y, game.sprBullet.width, game.sprBullet.height);
+	this.OffsetCenter();
+	this.bbox = new BoundingBox(x-this.xOffset, y-this.yOffset, this.sprite.w, this.sprite.height);
 	
-	this.Draw = function(){
-		game.ctx.drawImage(game.sprBullet, this.x-game.sprBullet.width/2 - game.viewX, this.y-game.sprBullet.height/2 - game.viewY);
-	}
 	this.Update = function(){
 		for(var i = 0; i < game.blocks.length; i++){ 
-			if(this.bbox.CollidesAt(game.blocks[i].bbox, this.x+this.hSpeed/2, this.y)){ 
+			if(this.bbox.CollidesAt(game.blocks[i].bbox, this.hSpeed/2, 0)){ 
 				this.Destroy();
 				break;
 			}
 		}
 		for(var i = 0; i < game.enemies.length; i++){
-			if(this.bbox.CollidesAt(game.enemies[i].bbox, this.x+this.hSpeed/2, this.y)){ 
+			if(this.bbox.CollidesAt(game.enemies[i].bbox, this.hSpeed/2, 0)){ 
 				if(game.enemies[i].curFrame == 1)game.enemies[i].life--;
 				this.Destroy();
 				break;
@@ -48,195 +141,123 @@ function Bullet(x,y,hspeed){
 		}
 	}
 	
-	this.Destroy = function(){
-			game.bullets.splice(game.bullets.indexOf(this), 1);
-			new BulletExplosion(this.x, this.y);
+	this.OnDestroy = function(){
+		game.bullets.splice(game.bullets.indexOf(this), 1);
+		new BulletExplosion(this.x, this.y);
 	}
 	
-	this.id = game.bullets.length;
 	game.bullets.push(this); 
 }
-
+Inherit(Bullet);
 
 function BulletExplosion(x,y){
+	GameObj.call(this, x, y);
 	AudioPlay(game.sndHit);
-	this.sprite = game.sprBulletHit;
-	this.x = x;
-	this.y = y;
-	this.curFrame = 0;
+	this.SetSprite(game.sprBulletHit);
+	this.OffsetCenter();
 	this.animSpeed = 0.25;
-	
-	this.Draw = function(){
-		var ox = Math.floor(this.curFrame) * this.sprite.w;
-		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,this.x - game.viewX - this.sprite.w/2, this.y - game.viewY - this.sprite.height/2, this.sprite.w, this.sprite.height); 
+	  
+	this.OnAnimationEnd = function(){
+		this.Destroy();
 	}
-	
-	this.Update = function(){
-		this.curFrame += this.animSpeed;
-		var diff = this.curFrame - this.sprite.frames;
-		if(diff >= 0){
-			this.curFrame = diff;
-		}
-		if(this.curFrame > 2){
-			game.entities.splice(game.entities.indexOf(this), 1);
-		}
-	}
-	game.entities.push(this); 
-	
-}
-
+} 
+Inherit(BulletExplosion);
 
 function Explosion(x,y){
+	GameObj.call(this, x, y);
 	AudioPlay(game.sndHit);
-	this.sprite = game.sprExplosion;
-	this.x = x;
-	this.y = y;
-	this.curFrame = 0;
+	this.SetSprite(game.sprExplosion);
 	this.animSpeed = 0.2;
+	this.OffsetCenter();
 	
-	this.Draw = function(){
-		var ox = Math.floor(this.curFrame) * this.sprite.w;
-		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,this.x - game.viewX - this.sprite.w/2, this.y - game.viewY - this.sprite.height/2, this.sprite.w, this.sprite.height); 
+	this.OnAnimationEnd = function(){
+		this.Destroy();
 	}
-	
-	this.Update = function(){
-		this.curFrame += this.animSpeed;
-		var diff = this.curFrame - this.sprite.frames;
-		if(diff >= 0){
-			this.curFrame = diff;
-		}
-		if(this.curFrame > 2){
-			game.entities.splice(game.entities.indexOf(this), 1);
-		}
-	}
-	game.entities.push(this); 
-	
 }
+Inherit(Explosion);
 
 
-function Portal(x,y){
-	this.sprite = game.sprPortal;
-	this.x = x;
-	this.y = y;
+function Portal(x,y){ 
+	GameObj.call(this, x, y);
+	this.SetSprite(game.sprPortal);
 	this.active = true;
-	this.curFrame = 0;
 	this.animSpeed = 0.25;
-	this.bbox = new BoundingBox(x, y, this.sprite.w- this.sprite.w/2, this.sprite.height- this.sprite.height/2);
-	
-	this.Draw = function(){
-		var ox = Math.floor(this.curFrame) * this.sprite.w;
-		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,this.x - game.viewX - this.sprite.w/2, this.y - game.viewY - this.sprite.height/2, this.sprite.w, this.sprite.height); 
-	}
+	this.OffsetCenter();
+	this.bbox = new BoundingBox(x - this.xOffset, y - this.yOffset, this.sprite.w, this.sprite.height);
 	
 	this.Update = function(){
-		this.curFrame += this.animSpeed;
-		var diff = this.curFrame - this.sprite.frames;
-		if(diff >= 0){
-			this.curFrame = diff;
-		}
-		if(this.bbox.CollidesAt(game.player.bbox, this.x, this.y)){
+		if(this.bbox.Collides(game.player.bbox)){
 			if(this.active){
 				this.active = false;
 				game.levelCompleted = new LevelCompleted();
 				var s = localStorage["level"+game.level];
-				if(s==undefined) s=0;
+				if(s == undefined) s=0;
 				var result = Math.floor(game.score/game.coinsCount * 3);
 				if(result > s)
 					localStorage["level"+game.level] = result;
 				
 				localStorage["complete"+game.level] = true;
 			}
-			
-
 		}
 	}
-	game.entities.push(this); 
-	
 }
+Inherit(Portal);
+
 
 function Spawn(x,y){
-	this.sprite = game.sprSpawn;
-	this.x = x;
-	this.y = y;
-	this.curFrame = 0;
+	GameObj.call(this, x, y);
+	this.SetSprite(game.sprSpawn);
 	this.animSpeed = 0.25;
-	
-	this.Draw = function(){
-		var ox = Math.floor(this.curFrame) * this.sprite.w;
-		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,this.x - game.viewX, this.y - game.viewY, this.sprite.w, this.sprite.height); 
-	}
-	
-	this.Update = function(){
-		this.curFrame += this.animSpeed;
-		var diff = this.curFrame - this.sprite.frames;
-		if(diff >= 0){
-			this.curFrame = diff;
-		}
-	}
-	game.entities.push(this); 
-	
 }
-
+Inherit(Spawn);
 
 function Coin(x,y){
-	this.sprite = game.sprCoin;
-	this.x = x;
-	this.y = y;
-	this.curFrame = 0;
-	this.animSpeed = 0.2;
+	GameObj.call(this, x, y);
+	this.SetSprite(game.sprCoin);
+	this.OffsetCenter();
+	this.animSpeed = 0;
+	this.OffsetCenter();
 	this.hit = false;
-	this.boing = Math.random()*3;
-	this.bbox = new BoundingBox(x, y, this.sprite.w, this.sprite.height);
-	
-	this.Draw = function(){
-		var ox = Math.floor(this.curFrame) * this.sprite.w;
-		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,this.x - game.viewX - this.sprite.w/2, this.y - game.viewY - this.sprite.height/2, this.sprite.w, this.sprite.height); 
-	}
+	this.boing = Math.random() * 3;
+	this.bbox = new BoundingBox(x-this.xOffset, y-this.yOffset, this.sprite.w, this.sprite.height);
 	
 	this.Update = function(){
 		if(this.hit){
-			this.curFrame += this.animSpeed;
-			var diff = this.curFrame - this.sprite.frames;
-			if(diff >= 0){
-				this.curFrame = diff;
-			}
 			this.y--;
 			if(this.life-- <= 0){
-				game.entities.splice(game.entities.indexOf(this), 1);
+				this.Destroy();
 			}
 		}else{
 			this.boing += 0.1;
 			this.y += Math.cos(this.boing)/7;
-			if(this.bbox.CollidesAt(game.player.bbox, this.x, this.y)){ 
+			if(this.bbox.Collides(game.player.bbox)){ 
 				this.life = 30; 
+				this.animSpeed = 0.2;
 				game.score++;
 				AudioPlay(game.sndCoin);
 				this.hit = true;
 			}
 		}
 	}
-	game.entities.push(this); 
-	
 }
+Inherit(Coin);
 
 function TurretBullet(x,y,hspeed){
-	this.x = x;
-	this.y = y;
+	GameObj.call(this, x, y);
+	this.SetSprite(game.sprTurretBullet);
+	this.OffsetCenter();
 	this.hSpeed = hspeed;
-	this.bbox = new BoundingBox(x, y, game.sprTurretBullet.width, game.sprTurretBullet.height);
+	this.bbox = new BoundingBox(x-this.xOffset, y-this.yOffset, this.sprite.width, this.sprite.height);
 	
-	this.Draw = function(){
-		game.ctx.drawImage(game.sprTurretBullet, this.x-game.sprTurretBullet.width/2 - game.viewX, this.y-game.sprTurretBullet.height/2 - game.viewY);
-	}
 	this.Update = function(){
 		for(var i = 0; i < game.blocks.length; i++){ 
-			if(this.bbox.CollidesAt(game.blocks[i].bbox, this.x+this.hSpeed/2, this.y)){ 
+			if(this.bbox.CollidesAt(game.blocks[i].bbox, this.hSpeed/2, 0)){ 
 				this.Destroy();
 				break;
 			}
 		}
 		if(!game.player.hit)
-			if(this.bbox.CollidesAt(game.player.bbox, this.x+this.hSpeed/2, this.y)){ 
+			if(this.bbox.CollidesAt(game.player.bbox, this.hSpeed/2, 0)){ 
 				game.player.Hit();
 				this.Destroy();
 			}
@@ -248,34 +269,25 @@ function TurretBullet(x,y,hspeed){
 		}
 	}
 	
-	this.Destroy = function(){
-			game.bullets.splice(game.bullets.indexOf(this), 1);
-			new BulletExplosion(this.x, this.y);
+	this.OnDestroy = function(){
+		game.bullets.splice(game.bullets.indexOf(this), 1);
+		new BulletExplosion(this.x, this.y);
 	}
 	
 	game.bullets.push(this); 
 	
 }
+Inherit(TurretBullet);
 
 function Turret(x,y){
-	this.sprite = game.sprTurret;
-	this.x = x+this.sprite.w/2;
-	this.y = y;
-	this.curFrame = 0;
+	GameObj.call(this, x, y);
+	this.SetSprite(game.sprTurret, true);
+	this.x += this.sprite.w/2;
 	this.timer = 50 * Math.random();
+	this.animSpeed = 0;
 	this.shotTimer = 0;
-	this.scaling = 1;
 	this.life =  5;
 	this.bbox = new BoundingBox(this.x-this.sprite.w/2+5, this.y, this.sprite.w-10, this.sprite.height);
-	
-	this.Draw = function(){
-		game.ctx.save();
-		game.ctx.translate(this.x-game.viewX,this.y-game.viewY);
-		game.ctx.scale(this.scaling, 1);
-		var ox = Math.floor(this.curFrame) * this.sprite.w;
-		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,-this.sprite.w/2,0, this.sprite.w, this.sprite.height); 
-		game.ctx.restore();
-	}
 	
 	this.Update = function(){
 		this.timer--;
@@ -298,18 +310,22 @@ function Turret(x,y){
 			}
 		}
 		if(this.life < 0){
-			game.enemies.splice(game.enemies.indexOf(this), 1);
-			new Explosion(this.x, this.y);
+			this.Destroy();
 		}
 	}
+	
+	this.OnDestroy = function(){
+		game.enemies.splice(game.enemies.indexOf(this), 1);
+		new Explosion(this.x, this.y);
+	}
+	
 	game.enemies.push(this); 	
 }
+Inherit(Turret);
 
 function Umbrella(x,y){
-	this.sprite = game.sprUmbrella;
-	this.x = x;
-	this.y = y;
-	this.curFrame = 0;
+	GameObj.call(this, x, y);
+	this.SetSprite(game.sprUmbrella);
 	this.timer = 50 * Math.random();
 	this.shotTimer = 0;
 	this.hSpeed = 1;
@@ -317,14 +333,9 @@ function Umbrella(x,y){
 	this.animSpeed = 0.25;
 	this.bbox = new BoundingBox(this.x, this.y, this.sprite.w, this.sprite.height);
 	
-	this.Draw = function(){
-		var ox = Math.floor(this.curFrame) * this.sprite.w;
-		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,this.x - game.viewX, this.y - game.viewY, this.sprite.w, this.sprite.height); 
-	}
-	
 	this.Update = function(){
 		for(var i = 0; i < game.blocks.length; i++){ 
-			if(this.bbox.CollidesAt(game.blocks[i].bbox, this.x+this.hSpeed/2, this.y)){ 
+			if(this.bbox.CollidesAt(game.blocks[i].bbox, this.hSpeed/2, 0)){ 
 				this.hSpeed = -this.hSpeed;
 				break;
 			}
@@ -335,33 +346,30 @@ function Umbrella(x,y){
 			game.enemies.splice(game.enemies.indexOf(this), 1);
 		}
 		
-		this.curFrame += this.animSpeed;
-		var diff = this.curFrame - this.sprite.frames;
-		if(diff >= 0){
-			this.curFrame = diff;
-		}
 		this.bbox.Move(this.x, this.y);
 		if(!game.player.hit)
 			if(this.bbox.Collides(game.player.bbox)){
 				game.player.Hit();
 			}
 	}
-	game.enemies.push(this); 
 	
+	this.OnDestroy = function(){
+		game.enemies.splice(game.enemies.indexOf(this), 1);
+	}
+
+	game.enemies.push(this); 
 }
+Inherit(Umbrella);
 
 function Spikes(x,y){
-	this.sprite = game.sprSpikes;
-	this.x = x+this.sprite.w/2;
-	this.y = y;
+
+	GameObj.call(this, x, y);
+	this.SetSprite(game.sprSpikes);
+	this.x += this.sprite.w/2;
 	this.curFrame = Math.floor(Math.random()*2);
+	this.animSpeed = 0;
 	this.timer = 50 * Math.random();
 	this.bbox = new BoundingBox(this.x, this.y, this.sprite.w, this.sprite.height);
-	
-	this.Draw = function(){
-		var ox = Math.floor(this.curFrame) * this.sprite.w;
-		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,this.x - game.viewX, this.y - game.viewY, this.sprite.w, this.sprite.height); 
-	}
 	
 	this.Update = function(){
 		this.timer--;
@@ -376,29 +384,27 @@ function Spikes(x,y){
 				game.player.Hit();
 			}
 		}
-	}
-	
-	this.id = game.enemies.length;
+	} 
 	game.enemies.push(this); 
 	
 }
 
 function Player(){
-	this.sprite = game.sprPlayerRun;
-	this.curFrame = 0.01;
-	this.width = this.sprite.w;
-	this.height = this.sprite.height; 
 	this.xStart = game.spawnX;
 	this.yStart = game.spawnY;
 	this.x = this.xStart;
 	this.y = this.yStart;
+	GameObj.call(this, this.x, this.y);
+	this.SetSprite(game.sprPlayerRun, true);
+	this.width = this.sprite.w;
+	this.height = this.sprite.height; 
 	this.xOffset = Math.floor(this.width/2);
 	this.yOffset = this.height;
-	this.animSpeed = 0.15;
+	this.animSpeed = 0.2;
 	this.maxSpeed = 5;
 	this.hSpeed = 0;
 	this.vSpeed = 0;
-	this.gravity = 0.2;
+	this.gravity = 0.4;
 	this.scaling = 1;
 	this.onField = false;
 	this.shotTime = 0;
@@ -411,23 +417,21 @@ function Player(){
 	
 	this.CollidesAt = function(x,y){
 		for(var i = 0; i < game.blocks.length; i++){ 
-			if(this.bbox.CollidesAt(game.blocks[i].bbox, x-this.xOffset, y-this.yOffset)){ 
+			if(this.bbox.CollidesAt(game.blocks[i].bbox, x, y)){ 
 				return true;
 			}
 		}
 		return false;
 	}
-	
-	
-	
+		
 	this.Update = function(){
 		if(Inputs.GetKeyDown(KEY_LEFT) && this.canShot){
 			if(this.hSpeed > 0) this.hSpeed = 0;
-			if(this.hSpeed > -this.maxSpeed) this.hSpeed-=0.2;			
+			if(this.hSpeed > -this.maxSpeed) this.hSpeed-=0.4;			
 		}
 		else if(Inputs.GetKeyDown(KEY_RIGHT) && this.canShot){
 			if(this.hSpeed < 0) this.hSpeed = 0;
-			if(this.hSpeed < this.maxSpeed) this.hSpeed+=0.2;
+			if(this.hSpeed < this.maxSpeed) this.hSpeed+=0.4;
 		}
 		else{
 			this.hSpeed/=1.1;
@@ -441,18 +445,19 @@ function Player(){
 		
 		
 		this.vSpeed += this.gravity;
-		var collides = false; 
-		for(var a = Math.abs(this.vSpeed); a > 0; a-=0.5){
+		var collides = false;
+		
+		for(var a = Math.abs(this.vSpeed); a > 0; a-=Math.abs(this.gravity)){
 			if(this.vSpeed > 0){
-				if( !this.CollidesAt(this.x , this.y + a)){
+				if( !this.CollidesAt(0, a)){
 					this.y += a;
 					break;
 				}else{
 					collides = true;
 				}
 			}
-			else{
-				if( !this.CollidesAt(this.x , this.y - a)){
+			else {
+				if( !this.CollidesAt(0 , -a)){
 					this.y -= a;
 					break;
 				}else{
@@ -460,18 +465,19 @@ function Player(){
 				}
 			}
 		}
-		if(collides){ 
+		if(collides){
 			this.vSpeed = 0;
 		}
+		
 		 
-		if(Inputs.GetKeyPress("Z") && this.CollidesAt(this.x , this.y +1)){ 
-			this.jumpPower = 8;
-			this.vSpeed -= 4;
+		if(Inputs.GetKeyPress("Z") && this.CollidesAt(0 , 1)){ 
+			this.jumpPower = 12;
+			this.vSpeed -= 7;
 		}
 		
 		if(Inputs.GetKeyDown("Z")){
 			if(this.jumpPower-- > 0){
-				this.vSpeed -= (1-this.jumpPower/8)/2;
+				this.vSpeed -= (1-this.jumpPower/12) /2;
 			}
 		}
 		
@@ -481,13 +487,13 @@ function Player(){
 		
 		for(var a = Math.abs(this.hSpeed); a > 0; a--){
 			if(this.hSpeed > 0){
-				if( !this.CollidesAt(this.x + a , this.y)){
+				if( !this.CollidesAt(a , 0)){
 					this.x += a;
 					break;
 				}
 			}
 			else{
-				if( !this.CollidesAt(this.x - a , this.y)){
+				if( !this.CollidesAt(- a , 0)){
 					this.x -= a;
 					break;
 				}
@@ -509,6 +515,7 @@ function Player(){
 			this.sprite = game.sprPlayerJump;
 			this.curFrame = 0;
 		}
+ 
  
 		
 		if(this.canShot){
@@ -592,22 +599,12 @@ function Player(){
 		var ox = Math.floor(this.curFrame) * this.width;
 		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,-this.xOffset,-this.sprite.height, this.sprite.w, this.sprite.height); 
 		game.ctx.restore();
+		
+		game.ctx.fillText(this.vSpeed+" sdasda", 40, 40);
 	}
 	
-	
-	this.UpdateAnimation = function(){
-		this.curFrame += this.animSpeed;
-		if(this.animSpeed > 0){
-			var diff = this.curFrame - this.sprite.frames;
-			if(diff >= 0){
-				this.curFrame = diff;
-			}
-		}
-		else if(this.curFrame < 0){
-			this.curFrame = (this.sprite.frames + this.curFrame) - 0.0000001;
-		}
-	}
 }
+Inherit(Player);
 
 function StartGame(){
 	game = new Game();
@@ -756,26 +753,19 @@ function Game(){
 	//aggiorna tutto
 	this.Update = function(){
 		if(this.level > 0) { 
-			this.player.Update(); 
-			for(var i = 0; i < this.bullets.length; i ++){ 
-				this.bullets[i].Update();
-			} 
-			for(var i = 0; i < this.enemies.length; i ++){ 
-				this.enemies[i].Update();
-			}
 			for(var i = 0; i < this.entities.length; i ++){ 
 				this.entities[i].Update();
 			}
-			
 		}
 	}
 	
 	//aggiorna animazioni e Inputs
 	this.EndLoop = function(){
 		if(this.level > 0){ 
-			this.player.UpdateAnimation(); 
+			for(var i = 0; i < this.entities.length; i ++){ 
+				this.entities[i].UpdateAnimation();
+			}
 		}
-		
 	}
 	
 	
@@ -817,24 +807,24 @@ function Game(){
 			this.ctx.restore();
 			
 			
+			//debug bounding box
+			this.ctx.strokeStyle = "#c00";
+			this.ctx.lineWidth = 1;
+		
+			for(var i = 0; i < this.entities.length; i ++){ 
+				if(this.entities[i].bbox != undefined)
+				this.ctx.strokeRect(this.entities[i].bbox.x-game.viewX+0.5, this.entities[i].bbox.y-game.viewY+0.5,this.entities[i].bbox.width,this.entities[i].bbox.height); 
+				
+			}
+			
 			/*
 			//draw collision blocks debug 
 			this.ctx.strokeStyle = "#c00";
 			for(var i = 0; i < this.blocks.length; i ++){ 
 				this.ctx.strokeRect(this.blocks[i].x-0.5, this.blocks[i].y-0.5,this.blocks[i].width,this.blocks[i].height); 
 			}
-			this.ctx.strokeStyle = "#000";
 			*/
-			
-			this.player.Draw();  
-			
-			for(var i = 0; i < this.bullets.length; i ++){ 
-				this.bullets[i].Draw();
-			}
-			
-			for(var i = 0; i < this.enemies.length; i ++){ 
-				this.enemies[i].Draw();
-			}
+			this.ctx.strokeStyle = "#000";
 			
 			
 			for(var i = 0; i < this.entities.length; i ++){ 

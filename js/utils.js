@@ -1,3 +1,13 @@
+
+window.requestAnimFrame = (function(callback) {
+	return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame ||
+	function(callback) {
+	  window.setTimeout(callback, 1000 / 60);
+	}; 
+})();
+
+
+
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
   if (w < 2 * r) r = w / 2;
   if (h < 2 * r) r = h / 2;
@@ -21,9 +31,11 @@ function DecodeSoundError(errorID){
 		default: return errorID;break;
 	}
 }
+
 Math.clamp = function(x, min, max) {
     return x < min ? min : (x > max ? max : x);
 };
+
 Math.lerp = function(a, b, u) { return (1 - u) * a + u * b; };
 
 function AudioPlay(source){
@@ -35,12 +47,6 @@ function AudioPlay(source){
 	}
 	source.play();
 }
-window.requestAnimFrame = (function(callback) {
-	return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame ||
-	function(callback) {
-	  window.setTimeout(callback, 1000 / 60);
-	}; 
-})();
 
 
 window.addEventListener('resize', function() {
