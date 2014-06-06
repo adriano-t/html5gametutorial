@@ -1,9 +1,7 @@
-/* TO DO LIST
+/* TODO LIST
 - specie di torrette che ti sparano
 - mostri alla super mario che vanno a dx e sx 
 - un nemico scudo-sparo (rimane in modalità "scudo": non puoi scalfirlo, poi toglie lo scudo per spararti un colpo, e diventa momentaneamente vulnerabile)
-
-
 */
 
 var game = null;
@@ -44,6 +42,15 @@ function GameObj(x, y){
 		game.ctx.restore();
 	}
 	
+	this.GetCollision = function(gameobj_list, x, y){
+		var len = gameobj_list.length;
+		for(var i = 0; i < len; i++){ 
+			if(this.bbox.CollidesAt(gameobj_list[i].bbox, x, y)){ 
+				return gameobj_list[i];
+			}
+		}
+		return null;
+	}
 	
 	this.SetSprite = function(sprite, mirror){
 		if(sprite == null || sprite == undefined){
@@ -104,7 +111,7 @@ function Inherit(obj, parent){
 	obj.prototype.constructor = obj;
 }
 
-function Block(x, y){ 
+function Block(x, y){
 	this.x = x;
 	this.y = y;
 	this.width = game.cellSize;
@@ -120,19 +127,18 @@ function Bullet(x,y,hspeed){
 	this.bbox = new BoundingBox(x-this.xOffset, y-this.yOffset, this.sprite.w, this.sprite.height);
 	
 	this.Update = function(){
-		for(var i = 0; i < game.blocks.length; i++){ 
-			if(this.bbox.CollidesAt(game.blocks[i].bbox, this.hSpeed/2, 0)){ 
+	
+		if(this.GetCollision(game.blocks, this.hSpeed/2, 0)){
 				this.Destroy();
-				break;
-			}
 		}
-		for(var i = 0; i < game.enemies.length; i++){
-			if(this.bbox.CollidesAt(game.enemies[i].bbox, this.hSpeed/2, 0)){ 
-				if(game.enemies[i].curFrame == 1)game.enemies[i].life--;
-				this.Destroy();
-				break;
-			}
+		
+		var inst = this.GetCollision(game.enemies, this.hSpeed/2, 0);
+		if(inst){
+			if(inst.curFrame == 1)
+				inst.life--;
+			this.Destroy();
 		}
+		
 		this.x += this.hSpeed;
 		this.bbox.Move(this.x-game.sprBullet.width/2, this.y-game.sprBullet.height/2);
 		
@@ -250,12 +256,10 @@ function TurretBullet(x,y,hspeed){
 	this.bbox = new BoundingBox(x-this.xOffset, y-this.yOffset, this.sprite.width, this.sprite.height);
 	
 	this.Update = function(){
-		for(var i = 0; i < game.blocks.length; i++){ 
-			if(this.bbox.CollidesAt(game.blocks[i].bbox, this.hSpeed/2, 0)){ 
+		if(this.GetCollision(game.blocks, this.hSpeed/2, 0)){
 				this.Destroy();
-				break;
-			}
-		}
+		}		
+		
 		if(!game.player.hit)
 			if(this.bbox.CollidesAt(game.player.bbox, this.hSpeed/2, 0)){ 
 				game.player.Hit();
@@ -334,12 +338,18 @@ function Umbrella(x,y){
 	this.bbox = new BoundingBox(this.x, this.y, this.sprite.w, this.sprite.height);
 	
 	this.Update = function(){
-		for(var i = 0; i < game.blocks.length; i++){ 
-			if(this.bbox.CollidesAt(game.blocks[i].bbox, this.hSpeed/2, 0)){ 
-				this.hSpeed = -this.hSpeed;
-				break;
-			}
+		if(this.GetCollision(game.blocks, this.hSpeed/2, 0)){
+			this.Destroy();
 		}
+		
+		var inst = this.GetCollision(game.enemies, this.hSpeed/2, 0);
+		if(inst){
+			if(inst.curFrame == 1)
+				inst.life--;
+			this.Destroy();
+		}
+		
+		
 		this.x += this.hSpeed;
 		
 		if(this.life < 0){
@@ -414,16 +424,7 @@ function Player(){
 	this.hitTimer = 0;
 	this.hitAlpha = 0;
 	this.hitAlphaTimer = 30;
-	
-	this.CollidesAt = function(x,y){
-		for(var i = 0; i < game.blocks.length; i++){ 
-			if(this.bbox.CollidesAt(game.blocks[i].bbox, x, y)){ 
-				return true;
-			}
-		}
-		return false;
-	}
-		
+	 
 	this.Update = function(){
 		if(Inputs.GetKeyDown(KEY_LEFT) && this.canShot){
 			if(this.hSpeed > 0) this.hSpeed = 0;
@@ -435,10 +436,13 @@ function Player(){
 		}
 		else{
 			this.hSpeed/=1.1;
-			if(Math.abs(this.hSpeed) < 1){
+			if(Math.abs(this.hSpeed) < 1 && this.canShot){
 				this.hSpeed = 0;
 				this.sprite = game.sprPlayerIdle;
-				this.curFrame = 0;
+				if(Math.random() > 0.1)
+					this.animSpeed = 0.03;
+				else
+					this.curFrame = 0;
 			}
 		}
 		
@@ -449,7 +453,7 @@ function Player(){
 		
 		for(var a = Math.abs(this.vSpeed); a > 0; a-=Math.abs(this.gravity)){
 			if(this.vSpeed > 0){
-				if( !this.CollidesAt(0, a)){
+				if( !this.GetCollision(game.blocks, 0, a)){
 					this.y += a;
 					break;
 				}else{
@@ -457,7 +461,7 @@ function Player(){
 				}
 			}
 			else {
-				if( !this.CollidesAt(0 , -a)){
+				if( !this.GetCollision(game.blocks, 0 , -a)){
 					this.y -= a;
 					break;
 				}else{
@@ -470,7 +474,7 @@ function Player(){
 		}
 		
 		 
-		if(Inputs.GetKeyPress("Z") && this.CollidesAt(0 , 1)){ 
+		if(Inputs.GetKeyPress("Z") && this.GetCollision(game.blocks, 0 , 1)){ 
 			this.jumpPower = 12;
 			this.vSpeed -= 7;
 		}
@@ -487,19 +491,20 @@ function Player(){
 		
 		for(var a = Math.abs(this.hSpeed); a > 0; a--){
 			if(this.hSpeed > 0){
-				if( !this.CollidesAt(a , 0)){
+				if( !this.GetCollision(game.blocks, a , 0)){
 					this.x += a;
 					break;
 				}
 			}
 			else{
-				if( !this.CollidesAt(- a , 0)){
+				if( !this.GetCollision(game.blocks, - a , 0)){
 					this.x -= a;
 					break;
 				}
 			
 			}
 		}
+		
 		if(this.hSpeed != 0){
 			this.scaling = (this.hSpeed < 0) ? -1 : 1; 
 			if(this.sprite != game.sprPlayerRun){
@@ -508,6 +513,7 @@ function Player(){
 			} 
 			this.animSpeed = 0.1 + Math.abs( this.hSpeed / this.maxSpeed * 0.12);
 		}
+		
 		if(this.vSpeed > 0){
 			this.sprite = game.sprPlayerFall;
 			this.curFrame = 0;
@@ -600,7 +606,7 @@ function Player(){
 		game.ctx.drawImage(this.sprite,ox,0,this.sprite.w,this.sprite.height,-this.xOffset,-this.sprite.height, this.sprite.w, this.sprite.height); 
 		game.ctx.restore();
 		
-		game.ctx.fillText(this.vSpeed+" sdasda", 40, 40);
+
 	}
 	
 }
@@ -646,6 +652,7 @@ function Game(){
 	
 	this.canvas.requestFullscreen = this.canvas.requestFullscreen ||  this.canvas.mozRequestFullScreen || this.canvas.webkitRequestFullScreen;
 	this.canvas.exitFullscreen = this.canvas.exitFullscreen ||  this.canvas.mozCancelFullScreen || this.canvas.webkitCancelFullScreen;
+	
 	screenfull.onchange = function(){
 		if(screenfull.isFullscreen){  
 			game.canvas.width = game.canvas.height*window.innerWidth/window.innerHeight;
@@ -759,7 +766,7 @@ function Game(){
 		}
 	}
 	
-	//aggiorna animazioni e Inputs
+	//aggiorna animazioni
 	this.EndLoop = function(){
 		if(this.level > 0){ 
 			for(var i = 0; i < this.entities.length; i ++){ 
@@ -769,7 +776,7 @@ function Game(){
 	}
 	
 	
-	this.DrawAll = function(){
+	this.Draw = function(){
 		// pulisci la schermata del canvas dal precedente draw
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		
@@ -777,15 +784,13 @@ function Game(){
 			this.mainMenu.Draw();
 		}
 		else{  
-			//disegna lo sfondo ripetuto 
-			//this.ctx.fillStyle = this.backgroundPattern1;
-			//this.ctx.fillRect(0,0,this.canvas.width, this.canvas.height);
+			//draw background 
 			this.ctx.drawImage(this.background1, 0, 0, this.canvas.width, this.canvas.height);
 			
+			//draw tiles only if in view
 			this.ctx.save();  
 			this.ctx.translate(-this.viewX,-this.viewY);
 			var cs = this.cellSize;
-			//draw tiles only if in view
 			var vx1 = this.viewX - this.cellSize;
 			var vy1 = this.viewY - this.cellSize;
 			var vx2 = this.viewX + this.canvas.width;
@@ -808,22 +813,21 @@ function Game(){
 			
 			
 			//debug bounding box
-			this.ctx.strokeStyle = "#c00";
-			this.ctx.lineWidth = 1;
-		
-			for(var i = 0; i < this.entities.length; i ++){ 
-				if(this.entities[i].bbox != undefined)
-				this.ctx.strokeRect(this.entities[i].bbox.x-game.viewX+0.5, this.entities[i].bbox.y-game.viewY+0.5,this.entities[i].bbox.width,this.entities[i].bbox.height); 
+			if(Inputs.GetKeyDown("D")){
+				this.ctx.strokeStyle = "#c00";
+				this.ctx.lineWidth = 1;
+			
+				for(var i = 0; i < this.entities.length; i ++){ 
+					if(this.entities[i].bbox != undefined)
+					this.ctx.strokeRect(this.entities[i].bbox.x-game.viewX+0.5, this.entities[i].bbox.y-game.viewY+0.5,this.entities[i].bbox.width,this.entities[i].bbox.height); 
+				}
 				
+				for(var i = 0; i < this.blocks.length; i ++){ 
+					this.ctx.strokeRect(this.blocks[i].x-game.viewX+0.5, this.blocks[i].y-game.viewY+0.5,this.blocks[i].width,this.blocks[i].height); 
+				}
+			
 			}
 			
-			/*
-			//draw collision blocks debug 
-			this.ctx.strokeStyle = "#c00";
-			for(var i = 0; i < this.blocks.length; i ++){ 
-				this.ctx.strokeRect(this.blocks[i].x-0.5, this.blocks[i].y-0.5,this.blocks[i].width,this.blocks[i].height); 
-			}
-			*/
 			this.ctx.strokeStyle = "#000";
 			
 			
@@ -958,7 +962,8 @@ function Game(){
 			}
 			//disegna tutto a schermo
 		}
-		this.DrawAll();
+		this.Draw();
+		
 		if(!this.sleep){
 			if(!this.paused){
 				// aggiorna le animazioni

@@ -12,7 +12,7 @@ KEY_CTRL = 17;
 KEY_SPACE = 32;
 
 // oggetto che gestisce gli input
-Inputs = function(){}
+Inputs = {};
 
 Inputs.mouseX = 0;
 Inputs.mouseY = 0;
