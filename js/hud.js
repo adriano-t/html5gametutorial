@@ -283,7 +283,7 @@ function Hud(){
 		game.ctx.shadowOffsetX = 1; 
 		game.ctx.font = "24pt 'PixelFont'" 
 		game.ctx.shadowBlur = 3;
-		game.ctx.fillText("Score: "+game.score, 350, game.canvas.height - 20);
+		//game.ctx.fillText("Score: "+game.score, 380, game.canvas.height - 20);
 		game.ctx.fillText("Level: "+game.level, 600, game.canvas.height - 20);
 		game.ctx.shadowOffsetX = 0; 
 		game.ctx.shadowBlur = 0;
