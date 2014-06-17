@@ -132,8 +132,7 @@ function Bullet(x,y,hspeed){
 				this.Destroy();
 		}
 		
-		var inst = this.GetCollision(game.enemies, this.hSpeed/2, 0);
-		if(inst){
+		if(inst = this.GetCollision(game.enemies, this.hSpeed/2, 0)){
 			if(inst.curFrame == 1)
 				inst.life--;
 			this.Destroy();
@@ -329,9 +328,7 @@ Inherit(Turret);
 
 function Umbrella(x,y){
 	GameObj.call(this, x, y);
-	this.SetSprite(game.sprUmbrella);
-	this.timer = 50 * Math.random();
-	this.shotTimer = 0;
+	this.SetSprite(game.sprUmbrella); 
 	this.hSpeed = 1;
 	this.life =  5;
 	this.animSpeed = 0.25;
@@ -339,20 +336,17 @@ function Umbrella(x,y){
 	
 	this.Update = function(){
 		if(this.GetCollision(game.blocks, this.hSpeed/2, 0)){
-			this.Destroy();
+			this.hSpeed = - this.hSpeed;
 		}
 		
-		var inst = this.GetCollision(game.enemies, this.hSpeed/2, 0);
-		if(inst){
-			if(inst.curFrame == 1)
-				inst.life--;
-			this.Destroy();
+		if(this.GetCollision(game.bullets, 0, 0)){
+			this.life--;
 		}
-		
 		
 		this.x += this.hSpeed;
 		
 		if(this.life < 0){
+			this.Destroy();
 			game.enemies.splice(game.enemies.indexOf(this), 1);
 		}
 		
@@ -473,12 +467,12 @@ function Player(){
 			this.vSpeed = 0;
 		}
 		
-		 
+				 
 		if(Inputs.GetKeyPress("Z") && this.GetCollision(game.blocks, 0 , 1)){ 
 			this.jumpPower = 12;
 			this.vSpeed -= 7;
 		}
-		
+
 		if(Inputs.GetKeyDown("Z")){
 			if(this.jumpPower-- > 0){
 				this.vSpeed -= (1-this.jumpPower/12) /2;
@@ -650,8 +644,12 @@ function Game(){
 	this.areaH = 5;
 	this.sleep = false;
 	
-	this.canvas.requestFullscreen = this.canvas.requestFullscreen ||  this.canvas.mozRequestFullScreen || this.canvas.webkitRequestFullScreen;
-	this.canvas.exitFullscreen = this.canvas.exitFullscreen ||  this.canvas.mozCancelFullScreen || this.canvas.webkitCancelFullScreen;
+	//fps counter
+	this.dt = 0;
+	this.fps = 0;
+	this.frames = 0;
+	this.millisec = 0;
+	this.prevTime = Date.now();
 	
 	screenfull.onchange = function(){
 		if(screenfull.isFullscreen){  
@@ -787,28 +785,50 @@ function Game(){
 			//draw background 
 			this.ctx.drawImage(this.background1, 0, 0, this.canvas.width, this.canvas.height);
 			
-			//draw tiles only if in view
+			var prev = Date.now();
 			this.ctx.save();  
 			this.ctx.translate(-this.viewX,-this.viewY);
 			var cs = this.cellSize;
-			var vx1 = this.viewX - this.cellSize;
-			var vy1 = this.viewY - this.cellSize;
-			var vx2 = this.viewX + this.canvas.width;
-			var vy2 = this.viewY + this.canvas.height;
-			for(var i = 0; i < this.tiles.length; i ++){ 
-				var layer = this.tiles[i];
-				for(var j = 0; j < layer.length; j ++){ 
-					if(layer[j][0] > vx1) 
-					if(layer[j][1] > vy1) 
-					if(layer[j][0] < vx2) 
-					if(layer[j][1] < vy2)
-					this.ctx.drawImage(this.imgTiles,
-						layer[j][2], layer[j][3],
-						cs, cs,
-						layer[j][0], layer[j][1],
-						cs, cs); 
+				
+			if(!Inputs.GetKeyDown("U")){
+				//draw tiles only if in view
+				var vx1 = this.viewX - this.cellSize;
+				var vy1 = this.viewY - this.cellSize;
+				var vx2 = this.viewX + this.canvas.width;
+				var vy2 = this.viewY + this.canvas.height;
+				for(var i = 0; i < this.tiles.length; i ++){ 
+					var layer = this.tiles[i];
+					for(var j = 0; j < layer.length; j ++){ 
+						if(layer[j][0] > vx1) 
+						if(layer[j][1] > vy1) 
+						if(layer[j][0] < vx2) 
+						if(layer[j][1] < vy2)
+						this.ctx.drawImage(this.imgTiles,
+							layer[j][2], layer[j][3],
+							cs, cs,
+							layer[j][0], layer[j][1],
+							cs, cs); 
+					}
+				}
+			}else{
+				var xMin = Math.floor(game.viewX / game.cellSize);
+				var yMin = Math.floor(game.viewY / game.cellSize);
+				var xMax = xMin + this.canvas.width/game.cellSize;
+				var yMax = yMin + this.canvas.height/game.cellSize;
+				
+				for(var i = xMin; i < xMax; i++)
+				for(var j = yMin; j < yMax; j++){
+					tile = this.tilemap[i][j];
+					if(tile){
+						this.ctx.drawImage(this.imgTiles,
+							tile[2], tile[3],
+							cs, cs,
+							tile[0], tile[1],
+							cs, cs); 
+					 }
 				}
 			}
+			
 			this.ctx.restore();
 			
 			
@@ -826,10 +846,13 @@ function Game(){
 					this.ctx.strokeRect(this.blocks[i].x-game.viewX+0.5, this.blocks[i].y-game.viewY+0.5,this.blocks[i].width,this.blocks[i].height); 
 				}
 			
+				
 			}
+			
 			
 			this.ctx.strokeStyle = "#000";
 			
+			this.ctx.fillText( this.fps + " , " + (parseInt(1000 / this.dt)), 30, 30);
 			
 			for(var i = 0; i < this.entities.length; i ++){ 
 				this.entities[i].Draw();
@@ -848,11 +871,11 @@ function Game(){
 		this.hud = null;
 		this.mainMenu = null;
 		this.levelCompleted = null;
-		this.gameOver = null;
 		this.blocks = [];
 		this.coinsCount = 0;
 		this.score = 0;
 		this.tiles = [];
+		this.tilemap = [];
 		this.bullets = []; 
 		this.entities = []; 
 		this.enemies = [];
@@ -862,10 +885,7 @@ function Game(){
 		//distruggi tutte le instanze
 		this.ResetLevel();
 		
-		if(lev == -1){
-			this.gameOver = new GameOver();
-		}
-		else if(lev == 0){
+		if(lev == 0){
 			//menu 
 			this.mainMenu = new MainMenu();
 		}
@@ -887,7 +907,7 @@ function Game(){
 			var cellsX = Math.ceil(this.imgTiles.width / cs);
 			var cellsY = Math.ceil(this.imgTiles.height / cs);
 			  
-			
+			//tilelist
 			for(var j = 0; j < tiles.length; j++){
 				var layer = tiles[j];
 				this.tiles.push([]);
@@ -898,6 +918,35 @@ function Game(){
 					this.tiles[j].push([layer[i][1]*this.cellSize, layer[i][2]*this.cellSize, cx*cs, cy*cs]);
 				}
 			}
+			
+			////////////////
+			//  tilemap
+			////////////////
+			
+			//free
+			console.log(settings[2], settings[3]);
+			for(var i=0; i<settings[2]; i++){
+				this.tilemap[i] = [];
+				for(var j=0; j<settings[3]; j++){
+					this.tilemap[i][j] = null;
+				}
+			}
+			
+			//add
+			for(var j = 0; j < tiles.length; j++){
+				var layer = tiles[j];
+				for(var i = 0; i < layer.length; i++){
+					var cy = Math.floor(layer[i][0] / cellsX);
+					var cx = layer[i][0] - cy*cellsX;
+					var x = layer[i][1];
+					var y = layer[i][2];
+					if(x > 0 && y > 0 && x < settings[2] && y < settings[3])
+					this.tilemap[x][y] = [x*this.cellSize, y*this.cellSize, cx*cs, cy*cs];
+					
+				}
+			}
+			
+			
 			
 			
 			//dati sui blocchi di collisione
@@ -955,6 +1004,21 @@ function Game(){
 	
 	
 	this.GameLoop = function(){
+		
+		this.dt = Date.now() - this.prevTime;
+		this.millisec += this.dt;
+		if(this.millisec >= 1000){
+			this.millisec = this.millisec % 1000;
+			this.fps = this.frames;
+			this.frames = 0;
+		}
+		this.prevTime = Date.now();
+		this.frames++;
+		
+		if(Inputs.GetKeyDown("C")){
+			console.log(this.dt);
+		}
+		
 		if(!this.sleep){
 			if(!this.paused){
 				// aggiorna tutti gli oggetti

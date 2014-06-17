@@ -48,6 +48,20 @@ function AudioPlay(source){
 	source.play();
 }
 
+function CreateCanvas(w, h, image){
+	var c = document.createElement("canvas");
+	c.width = w;
+	c.height = h;
+	return c;
+}
+
+function GetImageFromCanvas(canvas, onLoad, onError){
+	var img = document.createElement("img");
+	img.src = canvas.toDataURL("image/png");
+	img.onload = onLoad;
+	img.onerror = onError;
+	return img;
+}
 
 window.addEventListener('resize', function() {
   //
